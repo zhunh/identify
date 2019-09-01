@@ -1,0 +1,55 @@
+#创建通道
+peer channel create -o orderer.id.com:7050 -c idchannel -f ./channel-artifacts/channel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/id.com/msp/tlscacerts/tlsca.id.com-cert.pem
+#加入通道
+-company第2个节点
+export CORE_PEER_ADDRESS=peer1.school.id.com:7051
+export CORE_PEER_LOCALMSPID=SchoolMSP
+export CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/users/Admin@school.id.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/peers/peer1.school.id.com/tls/ca.crt
+export CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/peers/peer1.school.id.com/tls/server.crt
+export CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/peers/peer1.school.id.com/tls/server.key
+
+-company第1个节点
+export CORE_PEER_ADDRESS=peer0.company.id.com:7051
+export CORE_PEER_LOCALMSPID=CompanyMSP
+export CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/company.id.com/users/Admin@company.id.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/company.id.com/peers/peer0.company.id.com/tls/ca.crt
+export CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/company.id.com/peers/peer0.company.id.com/tls/server.crt
+export CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/company.id.com/peers/peer0.company.id.com/tls/server.key
+
+-company第2个节点
+export CORE_PEER_ADDRESS=peer1.company.id.com:7051
+export CORE_PEER_LOCALMSPID=CompanyMSP
+export CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/company.id.com/users/Admin@company.id.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/company.id.com/peers/peer1.company.id.com/tls/ca.crt
+export CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/company.id.com/peers/peer1.company.id.com/tls/server.crt
+export CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/company.id.com/peers/peer1.company.id.com/tls/server.key
+
+#安装链码
+peer chaincode install -n idcc42 -v 1.0 -l golang -p github.com/chaincode
+peer chaincode install -n schoolcc8 -v 1.0 -l golang -p github.com/chaincode/school
+peer chaincode install -n studentcc7 -v 1.0 -l golang -p github.com/chaincode/student
+peer chaincode install -n recordcc8 -v 1.0 -l golang -p github.com/chaincode/records
+#初始化链码
+peer chaincode instantiate -o orderer.id.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/id.com/msp/tlscacerts/tlsca.id.com-cert.pem  -C idchannel -n idcc42 -l golang -v 1.0 -c '{"Args":["init","znh","{\"Name\":\"jack\",\"SchoolId\":\"123456\",\"Sex\":\"male\",\"Age\":23}"]}' -P "AND ('SchoolMSP.member')"
+*学校
+peer chaincode instantiate -o orderer.id.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/id.com/msp/tlscacerts/tlsca.id.com-cert.pem  -C idchannel -n schoolcc8 -l golang -v 1.0 -c '{"Args":["init"]}' -P "AND ('SchoolMSP.member')"
+*学生
+peer chaincode instantiate -o orderer.id.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/id.com/msp/tlscacerts/tlsca.id.com-cert.pem  -C idchannel -n studentcc7 -l golang -v 1.0 -c '{"Args":["init"]}' -P "AND ('SchoolMSP.member')"
+*记录
+peer chaincode instantiate -o orderer.id.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/id.com/msp/tlscacerts/tlsca.id.com-cert.pem  -C idchannel -n recordcc8 -l golang -v 1.0 -c '{"Args":["init"]}' "AND ('SchoolMSP.member')"
+#链码更新,下列代码出错
+peer chaincode upgrade -o orderer.id.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/id.com/msp/tlscacerts/tlsca.id.com-cert.pem -C idchannel -n idcc1 -l golang -v 1.1 -c '{"Args":["init","znh","{\"Name\":\"jack\",\"SchoolId\":\"123456\",\"Sex\":\"male\",\"Age\":23}"]}' -P "AND ('SchoolMSP.member')"
+#查询
+peer chaincode query -C idchannel -n idcc4 -c '{"Args":["queryId","uuu12"]}'
+'{"Args":["query","znh"]}'
+
+#调用增加
+peer chaincode invoke -o orderer.id.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/id.com/msp/tlscacerts/tlsca.id.com-cert.pem -C idchannel -n idcc4 --peerAddresses peer0.school.id.com:7051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/tlsca/tlsca.school.id.com-cert.pem -c '{"Args":["addId","huanglei","{\"Name\":\"huanglei\",\"SchoolId\":\"2222\",\"Sex\":\"female\",\"Age\":25}"]}'
+*学生
+peer chaincode invoke -o orderer.znh.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/znh.com/msp/tlscacerts/tlsca.znh.com-cert.pem -C accchannel -n studentcc --peerAddresses peer0.accOrg1.znh.com:7051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/accOrg1.znh.com/tlsca/tlsca.accOrg1.znh.com-cert.pem -c '{"Args":["CreateStudent","6120170105","{\"StudentID\":\"6120170105\",\"StudentName\":\"znh\",\"StudentPhone\":\"18146688393\",\"StudentAddress\":\"Street89,room3\",\"StudentStatus\":1,\"SchoolName\":\"JXLG\"}"]}'
+*记录
+peer chaincode invoke -o orderer.znh.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/znh.com/msp/tlscacerts/tlsca.znh.com-cert.pem -C accchannel -n recordcc --peerAddresses peer0.accOrg1.znh.com:7051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/accOrg1.znh.com/tlsca/tlsca.accOrg1.znh.com-cert.pem -c '{"Args":["CreateRecord","SidTssample","{\"SidTs\":\"20190825\",\"StudentID\":\"6120170105\",\"Timestamp\":\"1730-1830\",\"Note\":[\"help clean classroom9\"]}"]}'
+#调用删除
+peer chaincode invoke -o orderer.id.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/id.com/msp/tlscacerts/tlsca.id.com-cert.pem -C idchannel -n idcc4 --peerAddresses peer0.school.id.com:7051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/tlsca/tlsca.school.id.com-cert.pem -c '{"Args":["deleteId","huanglei"]}'
+

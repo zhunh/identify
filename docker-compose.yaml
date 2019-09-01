@@ -1,0 +1,140 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2'
+
+volumes:
+  orderer.id.com:
+  peer0.school.id.com:
+  peer1.school.id.com:
+  peer0.company.id.com:
+  peer1.company.id.com:
+
+networks:
+  idnetwork:
+
+services:
+
+  ca.school.id.com:   #fabric-ca服务名，随便起
+    image: hyperledger/fabric-ca:latest
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_NAME=ca.school.id.com   #fabric-ca服务器的名字，自己起
+      # fabric-ca服务器的证书文件目录的证书文件
+      # 需要明确当前fabric-ca服务器属于哪个组织
+      - FABRIC_CA_SERVER_CA_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.school.id.com-cert.pem
+      # fabric-ca服务器的私钥文件
+      - FABRIC_CA_SERVER_CA_KEYFILE=/etc/hyperledger/fabric-ca-server-config/2bb915d0a204d221372d15a5d76b02ab4191a2a176a6c0e145c241cae1e38f5d_sk
+    ports:
+      - "7054:7054"   #fabric-ca服务器绑定的端口
+      # 启动fabric-ca-derver服务器
+      # admin:adminpw
+      #   -- admin：fabric-ca的登陆用户名
+      #   -- adminpw：fabric-ca的登陆密码
+    command: sh -c 'fabric-ca-server start -b admin:123456'
+    volumes:
+      - ./crypto-config/peerOrganizations/school.id.com/ca/:/etc/hyperledger/fabric-ca-server-config
+    container_name: ca.school.id.com  #容器名，自己指定
+    networks:
+      - idnetwork  #工作的网络
+
+  orderer.id.com:
+    extends:
+      file:   base/docker-compose-base.yaml
+      service: orderer.id.com
+    container_name: orderer.id.com
+    networks:
+      - idnetwork
+
+  couchdb0:
+    container_name: couchdb0
+    image: hyperledger/fabric-couchdb
+    # Populate the COUCHDB_USER and COUCHDB_PASSWORD to set an admin user and password
+    # for CouchDB.  This will prevent CouchDB from operating in an "Admin Party" mode.
+    environment:
+      - COUCHDB_USER=
+      - COUCHDB_PASSWORD=
+    # Comment/Uncomment the port mapping if you want to hide/expose the CouchDB service,
+    # for example map it to utilize Fauxton User Interface in dev environments.
+    ports:
+      - "5984:5984"
+    networks:
+      - idnetwork
+
+  peer0.school.id.com:
+    container_name: peer0.school.id.com
+    environment:
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb0:5984
+      # The CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME and CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD
+      # provide the credentials for ledger to connect to CouchDB.  The username and password must
+      # match the username and password set for the associated CouchDB.
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=      
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.school.id.com
+    depends_on:
+      - couchdb0
+    networks:
+      - idnetwork
+
+  peer1.school.id.com:
+    container_name: peer1.school.id.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.school.id.com
+    networks:
+      - idnetwork
+
+  peer0.company.id.com:
+    container_name: peer0.company.id.com    
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.company.id.com
+    networks:
+      - idnetwork
+
+  peer1.company.id.com:
+    container_name: peer1.company.id.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.company.id.com
+    networks:
+      - idnetwork
+
+  cli:
+    container_name: school-cli
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    stdin_open: true
+    environment:
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_LOGGING_LEVEL=DEBUG
+      #- CORE_LOGGING_LEVEL=INFO
+      - CORE_PEER_ID=cli
+      - CORE_PEER_ADDRESS=peer0.school.id.com:7051
+      - CORE_PEER_LOCALMSPID=SchoolMSP
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/peers/peer0.school.id.com/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/peers/peer0.school.id.com/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/peers/peer0.school.id.com/tls/ca.crt
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/school.id.com/users/Admin@school.id.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash
+    volumes:
+        - /var/run/:/host/var/run/
+        - ./chaincode/:/opt/gopath/src/github.com/chaincode
+        - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+        - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.id.com
+      - peer0.school.id.com
+      - peer1.school.id.com
+      - peer0.company.id.com
+      - peer1.company.id.com
+    networks:
+      - idnetwork
